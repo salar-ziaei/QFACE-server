@@ -1,4 +1,3 @@
-````markdown
 <div align="center">
 
 # QFACE Server
@@ -422,4 +421,3 @@ Commercial licenses are available for organizations that require proprietary use
 ⭐ If you find this project useful, consider giving it a star.
 
 </div>
-````
