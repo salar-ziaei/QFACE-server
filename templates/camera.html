@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QFACE - Camera Feed</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .capture-btn {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px 32px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: none;
+        }
+        .capture-btn:hover {
+            background: #218838;
+            transform: translateX(-50%) scale(1.05);
+        }
+        .capture-btn:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+        .capture-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .training-info {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .training-info .close-btn {
+            margin-left: 15px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">← Back to Dashboard</a>
+    <div class="training-info" id="trainingInfo">
+        Training: <span id="trainingName"></span>
+        <button class="close-btn" onclick="endTraining()">✕</button>
+    </div>
+    <div class="loading" id="loading">📹 Loading camera...</div>
+    <div class="camera-container">
+        <img id="cameraFeed" src="{{ camera_url }}" alt="Camera Feed" onerror="handleError()" onload="handleLoad()">
+    </div>
+    <div class="status" id="status">🔄 Connecting...</div>
+    <button class="capture-btn" id="captureBtn" onclick="captureForTraining()">📸 Capture for Training</button>
+
+    <script>
+        const cameraFeed = document.getElementById('cameraFeed');
+        const loading = document.getElementById('loading');
+        const status = document.getElementById('status');
+        const captureBtn = document.getElementById('captureBtn');
+        const trainingInfo = document.getElementById('trainingInfo');
+        const trainingName = document.getElementById('trainingName');
+        let trainingTarget = null;
+
+        const CAMERA_API = "{{ camera_api }}";
+        const RECOGNITION_API = "{{ recognition_api }}";
+
+        // Check for training session from query parameter
+        function checkTrainingSession() {
+            const params = new URLSearchParams(window.location.search);
+            const target = params.get('train');
+            if (target) {
+                trainingTarget = target;
+                trainingName.textContent = target;
+                trainingInfo.style.display = 'block';
+                captureBtn.style.display = 'block';
+                // Clear the URL parameter
+                window.history.replaceState({}, document.title, '/camera');
+                // Store in sessionStorage
+                sessionStorage.setItem('trainingTarget', target);
+            } else {
+                // Check sessionStorage
+                const storedTarget = sessionStorage.getItem('trainingTarget');
+                if (storedTarget) {
+                    trainingTarget = storedTarget;
+                    trainingName.textContent = trainingTarget;
+                    trainingInfo.style.display = 'block';
+                    captureBtn.style.display = 'block';
+                }
+            }
+        }
+
+        function endTraining() {
+            sessionStorage.removeItem('trainingTarget');
+            trainingTarget = null;
+            trainingInfo.style.display = 'none';
+            captureBtn.style.display = 'none';
+            showStatus('Training ended', '#ff9800');
+        }
+
+        function captureForTraining() {
+            if (!trainingTarget) {
+                showStatus('No training session active', '#ff9800');
+                return;
+            }
+            showStatus('📸 Capturing...', '#ff9800');
+            captureBtn.disabled = true;
+            captureBtn.textContent = '⏳ Capturing...';
+
+            // Fetch the current frame from the camera server
+            fetch(`${CAMERA_API}/capture?crop=true`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Capture failed');
+                    return res.blob();
+                })
+                .then(blob => {
+                    const formData = new FormData();
+                    // Use the face training endpoint (works for both users and faces)
+                    const url = `${RECOGNITION_API}/api/faces/${trainingTarget}/train`;
+                    formData.append('images', blob, 'capture.jpg');
+                    return fetch(url, {
+                        method: 'POST',
+                        body: formData
+                    });
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('✅ Captured and trained!', '#4caf50');
+                    } else {
+                        showStatus('❌ Failed: ' + data.message, '#f44336');
+                    }
+                })
+                .catch(err => {
+                    console.error('Capture error:', err);
+                    showStatus('❌ Error capturing', '#f44336');
+                })
+                .finally(() => {
+                    captureBtn.disabled = false;
+                    captureBtn.textContent = '📸 Capture for Training';
+                    // Keep ready for next capture
+                    setTimeout(() => {
+                        if (trainingTarget) {
+                            showStatus('Ready for next capture', '#4caf50');
+                        }
+                    }, 1000);
+                });
+        }
+
+        function showStatus(msg, color) {
+            status.textContent = msg;
+            status.style.color = color;
+        }
+
+        function handleLoad() {
+            loading.style.display = 'none';
+            showStatus('✅ Live', '#4caf50');
+        }
+
+        function handleError() {
+            loading.style.display = 'none';
+            showStatus('❌ Camera Error - Retrying...', '#f44336');
+            setTimeout(() => {
+                showStatus('🔄 Reconnecting...', '#ff9800');
+                cameraFeed.src = "{{ camera_url }}?t=" + new Date().getTime();
+            }, 3000);
+        }
+
+        // Initialize
+        cameraFeed.src = "{{ camera_url }}?t=" + new Date().getTime();
+        checkTrainingSession();
+
+        // Clear training session when leaving the page
+        window.addEventListener('beforeunload', () => {
+            sessionStorage.removeItem('trainingTarget');
+        });
+    </script>
+</body>
+</html>
