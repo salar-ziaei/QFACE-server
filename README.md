@@ -1,90 +1,425 @@
+````markdown
+<div align="center">
+
+# QFACE Server
+
+### Enterprise Face Recognition Backend
+
+High-performance face recognition server built with **FastAPI**, **InsightFace**, and **OpenCV** for real-time identity recognition, camera management, and AI-powered automation.
+
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)]()
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)]()
+[![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?logo=opencv&logoColor=white)]()
+[![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-005CED?logo=onnx&logoColor=white)]()
+[![License](https://img.shields.io/badge/License-AGPLv3-red)]()
+
+<img src="docs/dashboard.png" width="100%">
+
+**QFACE Server powers the entire QFACE ecosystem by providing face recognition, camera communication, user management, REST APIs, and real-time WebSocket services.**
+
+</div>
 
 ---
 
-## 📄 `QFACE-server/README.md`
+# Features
 
-```markdown
-# QFACE Server – Backend for Face Recognition
+## AI Face Recognition
 
-QFACE Server is the backend of the QFACE system, consisting of three FastAPI services:
+- Real-time face recognition
+- Face enrollment
+- Face embedding generation
+- Face verification
+- Unknown face detection
+- Confidence scoring
+- High-speed recognition pipeline
 
-- **Camera Server** (`port 8000`) – streams video, detects faces (YuNet), and triggers door actions.
-- **Recognition Server** (`port 8001`) – performs face recognition (SFace/ORB), logs recognitions, and manages face databases.
-- **Main Server** (`port 8080`) – serves the dashboard UI, handles user authentication, and proxies API calls with internal API keys.
+## Camera Management
 
-All services communicate via an internal API key for security.
+- USB Cameras
+- IP Cameras
+- RTSP Streams
+- Multiple camera support
+- Live frame processing
+- Camera configuration
+- Camera status monitoring
 
-## Features
+## API
 
-- **Face detection** using YuNet (ONNX) – accurate and fast on CPU.
-- **Face recognition** using SFace (with ORB fallback) – batched cosine similarity for performance.
-- **Embedding caching** – face descriptors are cached to disk to reduce recomputation.
-- **Dynamic settings** – adjust crop region, rotation, mirroring, and auto‑open at runtime via `/api/settings`.
-- **Door logs** – every door trigger is logged in SQLite.
-- **User management** – login sessions, admin roles, and password change.
-- **Internal API key** – secure communication between the three servers.
-- **Proxy endpoints** – the main server forwards all recognition/door requests with the internal key.
+- RESTful API
+- OpenAPI / Swagger documentation
+- JWT Authentication
+- JSON responses
+- Versioned endpoints
+- WebSocket communication
 
-## Requirements
+## Administration
 
-- Python 3.10+
-- OpenCV 4.8.1+ (with contrib modules)
-- Other dependencies listed in `requirements.txt`
+- User management
+- Settings management
+- Role-based permissions
+- Recognition history
+- System configuration
+- Device management
 
-## Installation
+## Performance
+
+- Multi-threaded processing
+- ONNX Runtime acceleration
+- CPU support
+- GPU support
+- Optimized embedding search
+- Low-latency recognition
+
+---
+
+# Architecture
+
+```
+                   Dashboard
+                       │
+             REST API / WebSocket
+                       │
+                FastAPI Application
+                       │
+        ┌──────────────┼──────────────┐
+        │              │              │
+ Authentication   Recognition      Settings
+        │              │              │
+        └──────────────┼──────────────┘
+                       │
+                 Database Layer
+                       │
+             Face Embeddings Storage
+                       │
+             Connected Camera Clients
+```
+
+---
+
+# Technology Stack
+
+| Category | Technology |
+|----------|------------|
+| Language | Python |
+| Framework | FastAPI |
+| AI | InsightFace |
+| Computer Vision | OpenCV |
+| Inference | ONNX Runtime |
+| ORM | SQLAlchemy |
+| Authentication | JWT |
+| Communication | REST + WebSocket |
+| Data Validation | Pydantic |
+
+---
+
+# Project Structure
+
+```
+QFACE-server
+│
+├── api/
+├── auth/
+├── camera/
+├── database/
+├── models/
+├── recognition/
+├── routers/
+├── schemas/
+├── services/
+├── settings/
+├── utils/
+├── websocket/
+├── static/
+├── logs/
+└── main.py
+```
+
+---
+
+# Installation
+
+## Clone
 
 ```bash
-git clone https://github.com/salar-ziaei/QFACE-server.git
+git clone https://github.com/salar-ziaei/QFACE-server
+
 cd QFACE-server
-python -m venv venv
-source venv/bin/activate   # or `venv\Scripts\activate` on Windows
+```
+
+## Create Virtual Environment
+
+### Windows
+
+```bash
+python -m venv .venv
+
+.venv\Scripts\activate
+```
+
+### Linux
+
+```bash
+python3 -m venv .venv
+
+source .venv/bin/activate
+```
+
+## Install Dependencies
+
+```bash
 pip install -r requirements.txt
-Configuration
-Create a .env file (or set environment variables) with the following:
+```
 
-env
-# Internal API key (must be the same for all servers)
-QFACE_INTERNAL_KEY=your-strong-secret-key
+---
 
-# Door control
-DOOR_API_URL=http://192.168.1.6/trigger
-DOOR_API_KEY=your-door-secret
-USE_DOOR_AUTH=false
+# Configuration
 
-# Recognition threshold
-RECOGNITION_THRESHOLD=80
+Configure the server according to your deployment.
 
-# Camera rotation
-CAMERA_ROTATION=0
-Alternatively, copy config.py and adjust default values.
+Typical settings include:
 
-Running the Servers
-Development (individual processes)
-bash
-# Terminal 1 – Camera Server
-python camera_server.py
+- Database connection
+- Recognition model
+- Camera settings
+- Authentication
+- Host
+- Port
+- Logging
+- Storage paths
 
-# Terminal 2 – Recognition Server
-python recognition_server.py
+---
 
-# Terminal 3 – Main Server
-python main_server.py
-Production (systemd)
-Each service has a corresponding systemd unit file (qface-camera.service, qface-recognition.service, qface-dashboard.service). Enable and start them:
+# Running the Server
 
-bash
-sudo systemctl enable qface-camera qface-recognition qface-dashboard
-sudo systemctl start qface-camera qface-recognition qface-dashboard
-API Overview
-Endpoint (Main Server)	Description
-/api/login	User login (session cookie)
-/api/users	CRUD for users (admin only)
-/api/proxy/faces	List/add/delete faces
-/api/proxy/logs	Fetch recognition logs
-/api/proxy/door_logs	Fetch door logs
-/api/proxy/trained_data	Manage training images
-/api/proxy/door	Trigger door manually
-Full API documentation is available at /docs on each server (e.g., http://localhost:8080/docs).
+```bash
+python main.py
+```
 
-License
-This project is licensed under the MIT License – see the LICENSE file for details.
+or
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+---
+
+# API Overview
+
+| Method | Endpoint | Description |
+|---------|----------|-------------|
+| GET | `/` | Server status |
+| POST | `/login` | Authenticate |
+| GET | `/users` | List users |
+| POST | `/users` | Create user |
+| GET | `/cameras` | Camera list |
+| POST | `/cameras` | Register camera |
+| GET | `/persons` | List persons |
+| POST | `/persons` | Enroll person |
+| DELETE | `/persons/{id}` | Delete person |
+| GET | `/settings` | System settings |
+
+---
+
+# Example Request
+
+```http
+POST /persons
+```
+
+```json
+{
+    "name":"John Doe",
+    "department":"Engineering"
+}
+```
+
+Response
+
+```json
+{
+    "success":true,
+    "id":25
+}
+```
+
+---
+
+# WebSocket
+
+Real-time events include:
+
+- Face recognized
+- Camera connected
+- Camera disconnected
+- Person added
+- Person removed
+- Recognition alerts
+- System notifications
+
+---
+
+# Recognition Pipeline
+
+```
+Camera Frame
+
+      │
+
+Face Detection
+
+      │
+
+Alignment
+
+      │
+
+Embedding Generation
+
+      │
+
+Similarity Search
+
+      │
+
+Recognition Result
+
+      │
+
+Database Logging
+
+      │
+
+Dashboard Notification
+```
+
+---
+
+# Security
+
+- JWT Authentication
+- Password hashing
+- Role-based authorization
+- Secure API endpoints
+- Input validation
+- Audit logging
+- CORS support
+
+---
+
+# Logging
+
+The server maintains logs for:
+
+- Recognition events
+- Authentication
+- API requests
+- Camera connections
+- Errors
+- System events
+
+---
+
+# Performance
+
+Designed for production deployments.
+
+Supports:
+
+- Multi-camera installations
+- Thousands of enrolled identities
+- Low-latency recognition
+- Parallel processing
+- GPU acceleration (when available)
+
+---
+
+# Integration
+
+QFACE Server communicates with:
+
+| Component | Purpose |
+|-----------|---------|
+| QFACE Dashboard | Administration |
+| QFACE Client | Camera communication |
+| REST API | Third-party integrations |
+| WebSocket | Live updates |
+
+---
+
+# Screenshots
+
+## Dashboard
+
+![](docs/dashboard.png)
+
+---
+
+## Recognition
+
+![](docs/recognition.png)
+
+---
+
+## Person Management
+
+![](docs/persons.png)
+
+---
+
+## Camera Management
+
+![](docs/cameras.png)
+
+---
+
+## System Logs
+
+![](docs/logs.png)
+
+---
+
+# Roadmap
+
+- [x] Face Recognition
+- [x] REST API
+- [x] WebSocket Support
+- [x] Camera Management
+- [x] User Management
+- [x] Recognition History
+- [ ] Docker Images
+- [ ] Kubernetes Support
+- [ ] Distributed Recognition
+- [ ] Face Liveness Detection
+- [ ] Plugin System
+- [ ] Analytics Dashboard
+
+---
+
+# Contributing
+
+Contributions are welcome.
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Commit your changes.
+4. Push the branch.
+5. Open a Pull Request.
+
+---
+
+# License
+
+Licensed under the **GNU Affero General Public License v3.0 (AGPLv3).**
+
+Commercial licenses are available for organizations that require proprietary use without AGPL obligations.
+
+---
+
+<div align="center">
+
+### Part of the QFACE Ecosystem
+
+⭐ If you find this project useful, consider giving it a star.
+
+</div>
+````
